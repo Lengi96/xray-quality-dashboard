@@ -37,6 +37,7 @@ model Project {
   defects      Defect[]
   syncRuns     SyncRun[]
   kpiSnapshots KpiSnapshot[]
+  executions   TestExecution[]
 
   @@index([externalId])
 }
@@ -210,6 +211,7 @@ model TestExecution {
   id          String          @id @default(cuid())
   externalId  String
   projectId   String
+  project     Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
   testCaseId  String
   testCase    TestCase        @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
   testPlanId  String?
@@ -292,7 +294,6 @@ model SyncRun {
   stages       Json       @default("{}")
   itemsSynced  Int        @default(0)
   isIncremental Boolean   @default(false)
-  createdAt    DateTime   @default(now())
 
   @@index([projectId])
   @@index([status])
@@ -345,6 +346,7 @@ model KpiSnapshot {
 
   @@index([projectId])
   @@index([snapshotAt])
+  @@index([projectId, snapshotAt])
 }
 
 enum ReadinessTier {

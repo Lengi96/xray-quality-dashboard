@@ -19,7 +19,9 @@ export const READINESS_THRESHOLDS = {
   AMBER: 50,
 } as const
 
-export const DEFECT_PRESSURE_NORMALIZER = 500  // CRITICAL × 50 baseline
+// Denominator for defect pressure ratio: score = Σ(count × severityWeight) / NORMALIZER
+// A project with 50 CRITICAL bugs (10×50=500) represents maximum pressure (score=1.0)
+export const DEFECT_PRESSURE_NORMALIZER = 500
 
 export const FLAKY_DETECTION_WINDOW = 10  // last N executions to check
 export const FLAKY_SCORE_THRESHOLD = 0.4  // >40% transition rate = flaky

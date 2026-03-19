@@ -1,19 +1,32 @@
 import { PrismaClient } from '@prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
 
-function createPrismaClient() {
-  const connectionString = process.env.DATABASE_URL!
-  const adapter = new PrismaPg({ connectionString })
+declare global {
+  // eslint-disable-next-line no-var
+  var __prisma: PrismaClient | undefined
+}
+
+function makePrismaClient(): PrismaClient {
+  const connectionString = process.env.DATABASE_URL
+  if (!connectionString) {
+    throw new Error('DATABASE_URL environment variable is not set')
+  }
   return new PrismaClient({
-    adapter,
+    adapter: new PrismaPg({ connectionString }),
     log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
   })
 }
 
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined
-}
-
-export const prisma = globalForPrisma.prisma ?? createPrismaClient()
-
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
+// Lazy singleton — only constructed when first property is accessed
+export const prisma: PrismaClient = new Proxy({} as PrismaClient, {
+  get(_target, prop) {
+    if (!global.__prisma) {
+      global.__prisma = makePrismaClient()
+    }
+    const value = (global.__prisma as unknown as Record<string | symbol, unknown>)[prop]
+    if (typeof value === 'function') {
+      return value.bind(global.__prisma)
+    }
+    return value
+  },
+})
