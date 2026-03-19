@@ -4,9 +4,13 @@ A production-ready quality management dashboard that integrates with Jira and Xr
 
 ## Screenshots
 
-### Sign-in
+### Landing Page
 
-![Sign-in screen](docs/images/login-screen.png)
+![Landing page](docs/images/homepage.png)
+
+### Guided Flow
+
+![Guided flow](docs/images/guided-flow.png)
 
 ## Features
 
