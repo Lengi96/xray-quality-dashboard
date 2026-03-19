@@ -1,0 +1,354 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── AUTH ────────────────────────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  passwordHash  String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+// ─── PROJECTS ────────────────────────────────────────────────────────────────
+
+model Project {
+  id           String    @id @default(cuid())
+  externalId   String    @unique
+  name         String
+  platform     Platform
+  xrayType     XrayType?
+  description  String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  config       ProjectConfig?
+  requirements Requirement[]
+  testCases    TestCase[]
+  testPlans    TestPlan[]
+  testSets     TestSet[]
+  defects      Defect[]
+  syncRuns     SyncRun[]
+  kpiSnapshots KpiSnapshot[]
+
+  @@index([externalId])
+}
+
+model ProjectConfig {
+  id                  String    @id @default(cuid())
+  projectId           String    @unique
+  project             Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  jiraBaseUrl         String?
+  jiraEmail           String?
+  jiraApiTokenEnc     String?
+  xrayClientIdEnc     String?
+  xrayClientSecretEnc String?
+  useMock             Boolean   @default(true)
+  readinessWeights    Json      @default("{\"coverageRate\":0.25,\"executionProgress\":0.20,\"passRate\":0.25,\"automationRate\":0.10,\"defectPressure\":0.20}")
+  severityWeights     Json      @default("{\"CRITICAL\":10,\"HIGH\":5,\"MEDIUM\":2,\"LOW\":1,\"TRIVIAL\":0.5}")
+  readinessGreenThreshold Float @default(75)
+  readinessAmberThreshold Float @default(50)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+}
+
+enum Platform {
+  JIRA_CLOUD
+  JIRA_SERVER
+}
+
+enum XrayType {
+  XRAY_CLOUD
+  XRAY_SERVER
+}
+
+// ─── REQUIREMENTS ─────────────────────────────────────────────────────────────
+
+model Requirement {
+  id            String          @id @default(cuid())
+  externalId    String
+  projectId     String
+  project       Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title         String
+  description   String?
+  type          RequirementType
+  status        String
+  priority      String?
+  epicKey       String?
+  assignee      String?
+  labels        String[]
+  components    String[]
+  syncedAt      DateTime
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  coverageLinks CoverageLink[]
+
+  @@unique([externalId, projectId])
+  @@index([projectId])
+  @@index([type])
+  @@index([epicKey])
+  @@index([priority])
+}
+
+enum RequirementType {
+  EPIC
+  STORY
+  TASK
+}
+
+// ─── TEST CASES ───────────────────────────────────────────────────────────────
+
+model TestCase {
+  id              String    @id @default(cuid())
+  externalId      String
+  projectId       String
+  project         Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title           String
+  status          String
+  testType        TestType
+  priority        String?
+  labels          String[]
+  components      String[]
+  preconditions   String?
+  definition      String?
+  automationDefId String?
+  syncedAt        DateTime
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  coverageLinks   CoverageLink[]
+  executions      TestExecution[]
+  testSetMembers  TestSetMember[]
+
+  @@unique([externalId, projectId])
+  @@index([projectId])
+  @@index([testType])
+}
+
+enum TestType {
+  MANUAL
+  AUTOMATED
+  GENERIC
+}
+
+// ─── COVERAGE LINK ────────────────────────────────────────────────────────────
+
+model CoverageLink {
+  id            String      @id @default(cuid())
+  requirementId String
+  requirement   Requirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+  testCaseId    String
+  testCase      TestCase    @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
+  linkType      String      @default("tests")
+  createdAt     DateTime    @default(now())
+
+  @@unique([requirementId, testCaseId])
+  @@index([requirementId])
+  @@index([testCaseId])
+}
+
+// ─── TEST PLANS ───────────────────────────────────────────────────────────────
+
+model TestPlan {
+  id         String    @id @default(cuid())
+  externalId String
+  projectId  String
+  project    Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name       String
+  status     String
+  version    String?
+  startDate  DateTime?
+  endDate    DateTime?
+  syncedAt   DateTime
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  executions TestExecution[]
+
+  @@unique([externalId, projectId])
+  @@index([projectId])
+}
+
+// ─── TEST SETS ────────────────────────────────────────────────────────────────
+
+model TestSet {
+  id         String        @id @default(cuid())
+  externalId String
+  projectId  String
+  project    Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name       String
+  syncedAt   DateTime
+  createdAt  DateTime      @default(now())
+
+  members    TestSetMember[]
+
+  @@unique([externalId, projectId])
+  @@index([projectId])
+}
+
+model TestSetMember {
+  id         String   @id @default(cuid())
+  testSetId  String
+  testSet    TestSet  @relation(fields: [testSetId], references: [id], onDelete: Cascade)
+  testCaseId String
+  testCase   TestCase @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
+
+  @@unique([testSetId, testCaseId])
+}
+
+// ─── TEST EXECUTIONS ──────────────────────────────────────────────────────────
+
+model TestExecution {
+  id          String          @id @default(cuid())
+  externalId  String
+  projectId   String
+  testCaseId  String
+  testCase    TestCase        @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
+  testPlanId  String?
+  testPlan    TestPlan?       @relation(fields: [testPlanId], references: [id])
+  status      ExecutionStatus
+  executedAt  DateTime?
+  duration    Int?
+  environment String?
+  isFlaky     Boolean         @default(false)
+  flakyScore  Float?
+  runNumber   Int             @default(1)
+  executedBy  String?
+  comment     String?
+  syncedAt    DateTime
+  createdAt   DateTime        @default(now())
+
+  @@unique([externalId, projectId])
+  @@index([testCaseId])
+  @@index([testPlanId])
+  @@index([status])
+  @@index([executedAt])
+  @@index([isFlaky])
+  @@index([projectId])
+}
+
+enum ExecutionStatus {
+  PASS
+  FAIL
+  BLOCKED
+  TODO
+  EXECUTING
+  ABORTED
+}
+
+// ─── DEFECTS ──────────────────────────────────────────────────────────────────
+
+model Defect {
+  id             String         @id @default(cuid())
+  externalId     String
+  projectId      String
+  project        Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title          String
+  status         String
+  severity       DefectSeverity
+  priority       String?
+  assignee       String?
+  linkedTestKey  String?
+  components     String[]
+  labels         String[]
+  syncedAt       DateTime
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  resolvedAt     DateTime?
+
+  @@unique([externalId, projectId])
+  @@index([projectId])
+  @@index([severity])
+  @@index([status])
+  @@index([createdAt])
+}
+
+enum DefectSeverity {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+  TRIVIAL
+}
+
+// ─── SYNC RUNS ────────────────────────────────────────────────────────────────
+
+model SyncRun {
+  id           String     @id @default(cuid())
+  projectId    String
+  project      Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  status       SyncStatus
+  startedAt    DateTime   @default(now())
+  completedAt  DateTime?
+  errorMessage String?
+  stages       Json       @default("{}")
+  itemsSynced  Int        @default(0)
+  isIncremental Boolean   @default(false)
+  createdAt    DateTime   @default(now())
+
+  @@index([projectId])
+  @@index([status])
+  @@index([startedAt])
+}
+
+enum SyncStatus {
+  RUNNING
+  SUCCESS
+  PARTIAL
+  FAILED
+}
+
+// ─── KPI SNAPSHOTS ────────────────────────────────────────────────────────────
+
+model KpiSnapshot {
+  id                  String        @id @default(cuid())
+  projectId           String
+  project             Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  snapshotAt          DateTime      @default(now())
+
+  totalRequirements   Int
+  coveredRequirements Int
+  coverageRate        Float
+
+  totalPlanned        Int
+  totalExecuted       Int
+  executionProgress   Float
+
+  totalPassed         Int
+  passRate            Float
+
+  totalTests          Int
+  automatedTests      Int
+  automationRate      Float
+
+  openCritical        Int
+  openHigh            Int
+  openMedium          Int
+  openLow             Int
+  openTrivial         Int
+  defectPressureScore Float
+
+  flakyTestCount      Int
+  flakyRate           Float
+
+  readinessScore      Float
+  readinessTier       ReadinessTier
+  weightsSnapshot     Json
+
+  @@index([projectId])
+  @@index([snapshotAt])
+}
+
+enum ReadinessTier {
+  RED
+  AMBER
+  GREEN
+}
