@@ -15,8 +15,28 @@ export async function createAdapter(config: AdapterConfig): Promise<IProjectAdap
     const { MockAdapter } = await import('./mock/adapter')
     return new MockAdapter()
   }
-  // Real adapters added in Phase 9
-  throw new Error(`Adapter mode '${config.mode}' not yet implemented`)
+
+  if (config.mode === 'jira-xray-cloud') {
+    const { XrayCloudAdapter } = await import('./xray/cloud/adapter')
+    return new XrayCloudAdapter({
+      jiraBaseUrl: config.jiraBaseUrl!,
+      jiraEmail: config.jiraEmail!,
+      jiraApiToken: config.jiraApiToken!,
+      xrayClientId: config.xrayClientId,
+      xrayClientSecret: config.xrayClientSecret,
+    })
+  }
+
+  if (config.mode === 'jira-xray-server') {
+    const { JiraXrayServerAdapter } = await import('./xray/server/adapter')
+    return new JiraXrayServerAdapter({
+      jiraBaseUrl: config.jiraBaseUrl!,
+      jiraEmail: config.jiraEmail!,
+      jiraApiToken: config.jiraApiToken!,
+    })
+  }
+
+  throw new Error(`Unknown adapter mode: ${config.mode}`)
 }
 
 export function getAdapterConfig(projectConfig: {
@@ -24,6 +44,9 @@ export function getAdapterConfig(projectConfig: {
   jiraBaseUrl?: string | null
   jiraEmail?: string | null
   xrayType?: string | null
+  jiraApiToken?: string | null
+  xrayClientId?: string | null
+  xrayClientSecret?: string | null
 }): AdapterConfig {
   if (projectConfig.useMock || process.env.DEMO_MODE === 'true') {
     return { mode: 'mock' }
@@ -32,5 +55,8 @@ export function getAdapterConfig(projectConfig: {
     mode: projectConfig.xrayType === 'XRAY_SERVER' ? 'jira-xray-server' : 'jira-xray-cloud',
     jiraBaseUrl: projectConfig.jiraBaseUrl ?? undefined,
     jiraEmail: projectConfig.jiraEmail ?? undefined,
+    jiraApiToken: projectConfig.jiraApiToken ?? undefined,
+    xrayClientId: projectConfig.xrayClientId ?? undefined,
+    xrayClientSecret: projectConfig.xrayClientSecret ?? undefined,
   }
 }
