@@ -2,16 +2,6 @@
 
 A production-ready quality management dashboard that integrates with Jira and Xray to deliver transparent test coverage monitoring and go-live readiness scoring.
 
-## Screenshots
-
-### Landing Page
-
-![Landing page](docs/images/homepage.png)
-
-### Guided Flow
-
-![Guided flow](docs/images/guided-flow.png)
-
 ## Features
 
 - **Readiness Score**: KPI-driven 0-100 score with traffic-light tiers (GREEN/AMBER/RED)
