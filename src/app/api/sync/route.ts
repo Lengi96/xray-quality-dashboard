@@ -8,7 +8,9 @@ export const dynamic = 'force-dynamic'
 
 const bodySchema = z.object({
   projectId: z.string().min(1),
-  full: z.boolean().optional().default(false),
+  // Accept either `full` (new) or `incremental` (legacy UI) — derive full from either
+  full: z.boolean().optional(),
+  incremental: z.boolean().optional(),
 })
 
 export async function POST(request: NextRequest) {
@@ -29,8 +31,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   }
 
-  const { projectId, full } = parsed.data
-  const incremental = !full
+  const { projectId } = parsed.data
+  // Resolve incremental: explicit `incremental` field takes priority; `full` inverts it
+  const incremental = parsed.data.incremental !== undefined
+    ? parsed.data.incremental
+    : !(parsed.data.full ?? false)
 
   // Fire-and-forget: trigger async, return syncRunId immediately
   // We need to create the SyncRun first to get the ID, then run async

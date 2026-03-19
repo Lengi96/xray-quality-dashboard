@@ -7,6 +7,8 @@ import { z } from 'zod'
 
 export const dynamic = 'force-dynamic'
 
+const getQuerySchema = z.object({ projectId: z.string().min(1) })
+
 const putBodySchema = z.object({
   projectId: z.string().min(1),
   jiraBaseUrl: z.string().url().optional().or(z.literal('')),
@@ -14,7 +16,6 @@ const putBodySchema = z.object({
   jiraApiToken: z.string().optional(),
   xrayClientId: z.string().optional(),
   xrayClientSecret: z.string().optional(),
-  xrayBaseUrl: z.string().url().optional().or(z.literal('')),
   greenThreshold: z.number().min(0).max(100).optional(),
   amberThreshold: z.number().min(0).max(100).optional(),
   useMock: z.boolean().optional(),
@@ -28,10 +29,11 @@ export async function GET(request: NextRequest) {
   }
 
   const { searchParams } = new URL(request.url)
-  const projectId = searchParams.get('projectId')
-  if (!projectId) {
+  const parsed = getQuerySchema.safeParse({ projectId: searchParams.get('projectId') })
+  if (!parsed.success) {
     return NextResponse.json({ error: 'projectId query param is required' }, { status: 400 })
   }
+  const { projectId } = parsed.data
 
   const config = await prisma.projectConfig.findUnique({ where: { projectId } })
   if (!config) {
@@ -76,9 +78,9 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   }
 
-  const { projectId, jiraBaseUrl, jiraEmail, jiraApiToken, xrayClientId, xrayClientSecret, useMock, readinessWeights } = parsed.data
+  const { projectId, jiraBaseUrl, jiraEmail, jiraApiToken, xrayClientId, xrayClientSecret, useMock, readinessWeights, greenThreshold, amberThreshold } = parsed.data
 
-  // Build partial update — only update token fields if new values are provided
+  // Build partial update — only update fields if new values are provided
   const updateData: Record<string, unknown> = {}
   if (jiraBaseUrl !== undefined) updateData.jiraBaseUrl = jiraBaseUrl
   if (jiraEmail !== undefined) updateData.jiraEmail = jiraEmail
@@ -87,6 +89,8 @@ export async function PUT(request: NextRequest) {
   if (xrayClientSecret !== undefined) updateData.xrayClientSecretEnc = encryptIfPresent(xrayClientSecret)
   if (useMock !== undefined) updateData.useMock = useMock
   if (readinessWeights !== undefined) updateData.readinessWeights = readinessWeights
+  if (greenThreshold !== undefined) updateData.readinessGreenThreshold = greenThreshold
+  if (amberThreshold !== undefined) updateData.readinessAmberThreshold = amberThreshold
 
   const config = await prisma.projectConfig.upsert({
     where: { projectId },
