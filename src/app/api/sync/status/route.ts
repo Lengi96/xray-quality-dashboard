@@ -2,8 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { z } from 'zod'
 
 export const dynamic = 'force-dynamic'
+
+const querySchema = z.object({ projectId: z.string().min(1) })
 
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions)
@@ -12,11 +15,11 @@ export async function GET(request: NextRequest) {
   }
 
   const { searchParams } = new URL(request.url)
-  const projectId = searchParams.get('projectId')
-
-  if (!projectId) {
-    return NextResponse.json({ error: 'projectId query param is required' }, { status: 400 })
+  const parsed = querySchema.safeParse({ projectId: searchParams.get('projectId') })
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'projectId is required' }, { status: 400 })
   }
+  const { projectId } = parsed.data
 
   const syncRun = await prisma.syncRun.findFirst({
     where: { projectId },

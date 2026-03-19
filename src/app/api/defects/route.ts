@@ -2,8 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { getDefectSummary, getDefectList } from '@/server/queries/defects'
+import { z } from 'zod'
 
 export const dynamic = 'force-dynamic'
+
+const querySchema = z.object({
+  projectId: z.string().min(1),
+  severity: z.string().optional(),
+  status: z.string().optional(),
+})
 
 // GET /api/defects?projectId=&type=summary|list&severity=&status=&limit=&offset=
 export async function GET(request: NextRequest) {
@@ -14,11 +21,15 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url)
   const type = searchParams.get('type') ?? 'summary'
-  const projectId = searchParams.get('projectId')
-
-  if (!projectId) {
+  const parsed = querySchema.safeParse({
+    projectId: searchParams.get('projectId'),
+    severity: searchParams.get('severity') ?? undefined,
+    status: searchParams.get('status') ?? undefined,
+  })
+  if (!parsed.success) {
     return NextResponse.json({ error: 'projectId is required' }, { status: 400 })
   }
+  const { projectId } = parsed.data
 
   if (type === 'list') {
     const severity = searchParams.get('severity') ?? undefined

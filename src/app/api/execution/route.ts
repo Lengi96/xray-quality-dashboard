@@ -6,8 +6,14 @@ import {
   getExecutionResults,
   getTestPlans,
 } from '@/server/queries/execution'
+import { z } from 'zod'
 
 export const dynamic = 'force-dynamic'
+
+const querySchema = z.object({
+  projectId: z.string().min(1),
+  planId: z.string().optional(),
+})
 
 // GET /api/execution?projectId=&planId=&type=summary|results|plans&status=&limit=&offset=
 export async function GET(request: NextRequest) {
@@ -18,12 +24,14 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url)
   const type = searchParams.get('type') ?? 'summary'
-  const projectId = searchParams.get('projectId')
-  const planId = searchParams.get('planId') ?? undefined
-
-  if (!projectId) {
+  const parsed = querySchema.safeParse({
+    projectId: searchParams.get('projectId'),
+    planId: searchParams.get('planId') ?? undefined,
+  })
+  if (!parsed.success) {
     return NextResponse.json({ error: 'projectId is required' }, { status: 400 })
   }
+  const { projectId, planId } = parsed.data
 
   if (type === 'plans') {
     const data = await getTestPlans(projectId)

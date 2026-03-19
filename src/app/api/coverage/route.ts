@@ -6,8 +6,11 @@ import {
   getUncoveredRequirements,
   getRequirementDetail,
 } from '@/server/queries/coverage'
+import { z } from 'zod'
 
 export const dynamic = 'force-dynamic'
+
+const querySchema = z.object({ projectId: z.string().min(1) })
 
 // GET /api/coverage?projectId=&type=summary|uncovered|detail&requirementId=&priority=&reqType=&limit=&offset=
 export async function GET(request: NextRequest) {
@@ -18,7 +21,6 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url)
   const type = searchParams.get('type') ?? 'summary'
-  const projectId = searchParams.get('projectId')
 
   if (type === 'detail') {
     const requirementId = searchParams.get('requirementId')
@@ -29,9 +31,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ data })
   }
 
-  if (!projectId) {
+  const parsed = querySchema.safeParse({ projectId: searchParams.get('projectId') })
+  if (!parsed.success) {
     return NextResponse.json({ error: 'projectId is required' }, { status: 400 })
   }
+  const { projectId } = parsed.data
 
   if (type === 'uncovered') {
     const priority = searchParams.get('priority') ?? undefined

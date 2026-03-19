@@ -2,8 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { runSync } from '@/sync/pipeline'
+import { z } from 'zod'
 
 export const dynamic = 'force-dynamic'
+
+const bodySchema = z.object({
+  projectId: z.string().min(1),
+  full: z.boolean().optional().default(false),
+})
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions)
@@ -11,18 +17,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  let body: { projectId?: string; incremental?: boolean }
+  let rawBody: unknown
   try {
-    body = await request.json()
+    rawBody = await request.json()
   } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
 
-  const { projectId, incremental = false } = body
-
-  if (!projectId || typeof projectId !== 'string') {
-    return NextResponse.json({ error: 'projectId is required' }, { status: 400 })
+  const parsed = bodySchema.safeParse(rawBody)
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   }
+
+  const { projectId, full } = parsed.data
+  const incremental = !full
 
   // Fire-and-forget: trigger async, return syncRunId immediately
   // We need to create the SyncRun first to get the ID, then run async

@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__Desktop_Commander__list_processes",
+      "mcp__Windows-MCP__PowerShell"
+    ]
+  }
+}

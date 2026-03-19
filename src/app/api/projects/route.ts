@@ -2,8 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { z } from 'zod'
 
 export const dynamic = 'force-dynamic'
+
+const postBodySchema = z.object({
+  name: z.string().min(1).max(100),
+  externalId: z.string().min(1).max(20),
+  platform: z.enum(['JIRA_CLOUD', 'JIRA_SERVER']),
+  xrayType: z.enum(['XRAY_CLOUD', 'XRAY_SERVER']).optional(),
+  useMock: z.boolean().optional().default(false),
+})
 
 // GET /api/projects — list all projects with latest SyncRun status and KpiSnapshot readiness
 export async function GET() {
@@ -83,42 +92,19 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  let body: {
-    name?: string
-    externalId?: string
-    platform?: string
-    xrayType?: string
-    useMock?: boolean
-  }
-
+  let rawBody: unknown
   try {
-    body = await request.json()
+    rawBody = await request.json()
   } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
 
-  const { name, externalId, platform, xrayType, useMock = true } = body
-
-  if (!name || typeof name !== 'string') {
-    return NextResponse.json({ error: 'name is required' }, { status: 400 })
-  }
-  if (!externalId || typeof externalId !== 'string') {
-    return NextResponse.json({ error: 'externalId is required' }, { status: 400 })
-  }
-  if (!platform || (platform !== 'JIRA_CLOUD' && platform !== 'JIRA_SERVER')) {
-    return NextResponse.json(
-      { error: 'platform must be JIRA_CLOUD or JIRA_SERVER' },
-      { status: 400 }
-    )
+  const parsed = postBodySchema.safeParse(rawBody)
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   }
 
-  // Validate optional xrayType
-  if (xrayType && xrayType !== 'XRAY_CLOUD' && xrayType !== 'XRAY_SERVER') {
-    return NextResponse.json(
-      { error: 'xrayType must be XRAY_CLOUD or XRAY_SERVER' },
-      { status: 400 }
-    )
-  }
+  const { name, externalId, platform, xrayType, useMock = true } = parsed.data
 
   // Check for duplicate externalId
   const existing = await prisma.project.findUnique({ where: { externalId } })

@@ -2,9 +2,24 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { encryptIfPresent, decryptIfPresent } from '@/lib/encryption'
+import { encryptIfPresent } from '@/lib/encryption'
+import { z } from 'zod'
 
 export const dynamic = 'force-dynamic'
+
+const putBodySchema = z.object({
+  projectId: z.string().min(1),
+  jiraBaseUrl: z.string().url().optional().or(z.literal('')),
+  jiraEmail: z.string().email().optional().or(z.literal('')),
+  jiraApiToken: z.string().optional(),
+  xrayClientId: z.string().optional(),
+  xrayClientSecret: z.string().optional(),
+  xrayBaseUrl: z.string().url().optional().or(z.literal('')),
+  greenThreshold: z.number().min(0).max(100).optional(),
+  amberThreshold: z.number().min(0).max(100).optional(),
+  useMock: z.boolean().optional(),
+  readinessWeights: z.record(z.string(), z.number()).optional(),
+})
 
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions)
@@ -49,28 +64,19 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  let body: {
-    projectId: string
-    jiraBaseUrl?: string
-    jiraEmail?: string
-    jiraApiToken?: string
-    xrayClientId?: string
-    xrayClientSecret?: string
-    useMock?: boolean
-    readinessWeights?: Record<string, number>
-  }
-
+  let rawBody: unknown
   try {
-    body = await request.json()
+    rawBody = await request.json()
   } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
 
-  const { projectId, jiraBaseUrl, jiraEmail, jiraApiToken, xrayClientId, xrayClientSecret, useMock, readinessWeights } = body
-
-  if (!projectId) {
-    return NextResponse.json({ error: 'projectId is required' }, { status: 400 })
+  const parsed = putBodySchema.safeParse(rawBody)
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   }
+
+  const { projectId, jiraBaseUrl, jiraEmail, jiraApiToken, xrayClientId, xrayClientSecret, useMock, readinessWeights } = parsed.data
 
   // Build partial update — only update token fields if new values are provided
   const updateData: Record<string, unknown> = {}
