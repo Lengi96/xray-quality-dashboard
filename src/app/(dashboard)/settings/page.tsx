@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { ConnectionConfigForm } from '@/components/settings/connection-config-form'
 import { SyncControlPanel } from '@/components/settings/sync-control-panel'
 import { WeightSliders } from '@/components/settings/weight-sliders'
+import { ProjectSelector } from '@/components/settings/project-selector'
 
 export const dynamic = 'force-dynamic'
 
@@ -56,26 +57,7 @@ export default async function SettingsPage({ searchParams }: PageProps) {
 
       {/* Project selector */}
       {projects.length > 0 && (
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Project</label>
-          <form method="get">
-            <select
-              name="projectId"
-              defaultValue={selectedProjectId ?? ''}
-              onChange={(e) => {
-                const form = (e.target as HTMLSelectElement).closest('form') as HTMLFormElement
-                form?.submit()
-              }}
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-            >
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} ({p.externalId})
-                </option>
-              ))}
-            </select>
-          </form>
-        </div>
+        <ProjectSelector projects={projects} selectedProjectId={selectedProjectId} />
       )}
 
       {selectedProjectId ? (

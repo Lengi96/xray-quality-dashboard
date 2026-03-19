@@ -1,7 +1,15 @@
 import { PrismaClient } from '@prisma/client'
+import { PrismaPg } from '@prisma/adapter-pg'
 import bcrypt from 'bcryptjs'
+import { config } from 'dotenv'
+import path from 'node:path'
 
-const prisma = new PrismaClient()
+config({ path: path.join(process.cwd(), '.env') })
+
+const connectionString = process.env.DATABASE_URL!
+const prisma = new PrismaClient({
+  adapter: new PrismaPg({ connectionString }),
+})
 
 const EXECUTION_STATUSES = ['PASS', 'PASS', 'PASS', 'PASS', 'FAIL', 'BLOCKED', 'TODO', 'PASS'] as const
 
