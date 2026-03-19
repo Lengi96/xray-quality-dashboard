@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { createAdapter, getAdapterConfig } from '@/integrations/factory'
 import { SyncContext, StageResult } from './types'
+import { calculateAndSnapshotKpis } from '@/kpi/engine'
 import { syncProjectsStage } from './stages/sync-projects'
 import { syncRequirementsStage } from './stages/sync-requirements'
 import { syncTestCasesStage } from './stages/sync-test-cases'
@@ -104,7 +105,12 @@ export async function runSync(projectId: string, isIncremental = false): Promise
       },
     })
 
-    // await calculateAndSnapshotKpis(projectId) // wired in Phase 5
+    // After all stages: compute and persist KPI snapshot (non-fatal)
+    try {
+      await calculateAndSnapshotKpis(projectId)
+    } catch (kpiError) {
+      console.error('KPI calculation failed:', kpiError)
+    }
 
     return syncRunId
   } catch (error) {
